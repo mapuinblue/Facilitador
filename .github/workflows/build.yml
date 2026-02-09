@@ -64,7 +64,7 @@ jobs:
       
       - name: Build Windows exe
         run: |
-          pyinstaller --onefile --windowed --name "DIANaSiigo" dian_a_siigo.exe
+          pyinstaller --onefile --windowed --name "DIANaSiigo" dian_a_siigo.py
       
       - name: Check what was built
         run: |
