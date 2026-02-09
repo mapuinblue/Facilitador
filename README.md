@@ -71,5 +71,19 @@ En Colombia, las empresas deben reportar sus operaciones de compra y venta ante 
 
 1. **Clona el repositorio**:
    ```bash
-   git clone https://github.com/tuusuario/dian-a-siigo.git
+   git clone https://github.com/mapuinblue/Facilitador.git
    cd dian-a-siigo
+2. **Instala las dependencias**:
+   ```bash
+   pip install pandas openpyxl
+3. **Ejecuta la aplicación**:
+   ```bash
+   python dian_a_siigo.py
+
+### Opción 2: Crear ejecutable (.exe) para Windows
+
+Si deseas distribuir la aplicación a usuarios sin Python instalado:
+   ```bash
+   pip install pyinstaller
+   pyinstaller --onefile --windowed --name "DIANaSiigo" dian_a_siigo.py
+
