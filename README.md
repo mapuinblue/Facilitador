@@ -6,7 +6,7 @@
 
 Aplicación de escritorio para automatizar el procesamiento contable de documentos electrónicos descargados de la DIAN (Dirección de Impuestos y Aduanas Nacionales de Colombia) al formato requerido por el software contable **Siigo**.
 
-![Interfaz de la aplicación](screenshots/interfaz.png)
+<img width="1012" height="851" alt="Image" src="https://github.com/user-attachments/assets/2cda51ca-9bc9-406a-816e-d47916872482" />
 
 ## 📋 Tabla de Contenidos
 
