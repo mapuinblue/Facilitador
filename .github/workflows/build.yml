@@ -1,4 +1,4 @@
-name: Build Executables
+nname: Build Executables
 
 on:
   push:
@@ -27,14 +27,24 @@ jobs:
       - name: Build macOS app
         run: |
           pyinstaller --windowed --name "DIANaSiigo" dian_a_siigo.py
+      
+      - name: Check what was built
+        run: |
+          echo "Contents of dist folder:"
+          ls -la dist/
+      
+      - name: Zip macOS app
+        run: |
           cd dist
-          zip -r DIANaSiigo-macos.zip DIANaSiigo.app
+          zip -r ../DIANaSiigo-macos.zip DIANaSiigo.app
+          cd ..
+          ls -la DIANaSiigo-macos.zip
       
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: DIANaSiigo-macos
-          path: dist/DIANaSiigo-macos.zip
+          path: DIANaSiigo-macos.zip
 
   build-windows:
     runs-on: windows-latest
@@ -54,7 +64,12 @@ jobs:
       
       - name: Build Windows exe
         run: |
-          pyinstaller --onefile --windowed --name "DIANaSiigo" dian_a_siigo.py
+          pyinstaller --onefile --windowed --name "DIANaSiigo" dian_a_siigo.exe
+      
+      - name: Check what was built
+        run: |
+          echo "Contents of dist folder:"
+          ls dist/
       
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
