@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-14  # Apple Silicon runner
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,21 +24,56 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas openpyxl pyinstaller
       
-      - name: Build macOS app
+      - name: Build macOS Universal app
         run: |
-          pyinstaller --windowed --name "DIANaSiigo" dian_a_siigo.py
+          python -m PyInstaller \
+            --windowed \
+            --name "DIANaSiigo" \
+            --target-arch universal2 \
+            --osx-bundle-identifier "com.tuusuario.dianasiigo" \
+            dian_a_siigo.py
       
-      - name: Check what was built
+      - name: Verify architecture
         run: |
-          echo "Contents of dist folder:"
-          ls -la dist/
+          echo "Verificando arquitectura del binario:"
+          lipo -info dist/DIANaSiigo.app/Contents/MacOS/DIANaSiigo
+          file dist/DIANaSiigo.app/Contents/MacOS/DIANaSiigo
+      
+      - name: Fix app permissions
+        run: |
+          chmod +x dist/DIANaSiigo.app/Contents/MacOS/DIANaSiigo
+          # Crear Info.plist básico si no existe
+          if [ ! -f dist/DIANaSiigo.app/Contents/Info.plist ]; then
+            cat > dist/DIANaSiigo.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>DIANaSiigo</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.tuusuario.dianasiigo</string>
+              <key>CFBundleName</key>
+              <string>DIANaSiigo</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0.0</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.13</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          fi
       
       - name: Zip macOS app
         run: |
           cd dist
           zip -r ../DIANaSiigo-macos.zip DIANaSiigo.app
           cd ..
-          ls -la DIANaSiigo-macos.zip
+          ls -lh DIANaSiigo-macos.zip
       
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
