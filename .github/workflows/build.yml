@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-macos:
-    runs-on: macos-14  # Apple Silicon runner
+    runs-on: macos-14  # Apple Silicon runner (ARM64 nativo)
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,32 +19,34 @@ jobs:
         with:
           python-version: '3.11'
       
-      - name: Install dependencies
+      - name: Clean install dependencies (ARM64 only)
         run: |
           python -m pip install --upgrade pip
-          pip install pandas openpyxl pyinstaller
+          # Forzar instalación desde source para evitar mezcla de arquitecturas
+          pip install --no-cache-dir --force-reinstall numpy pandas openpyxl
+          pip install pyinstaller
       
-      - name: Build macOS Universal app
+      - name: Build macOS app (ARM64 native)
         run: |
           python -m PyInstaller \
             --windowed \
             --name "DIANaSiigo" \
-            --target-arch universal2 \
+            --target-arch arm64 \
             --osx-bundle-identifier "com.tuusuario.dianasiigo" \
             dian_a_siigo.py
       
       - name: Verify architecture
         run: |
-          echo "Verificando arquitectura del binario:"
-          lipo -info dist/DIANaSiigo.app/Contents/MacOS/DIANaSiigo
+          echo "=== Verificando arquitectura ==="
           file dist/DIANaSiigo.app/Contents/MacOS/DIANaSiigo
+          lipo -info dist/DIANaSiigo.app/Contents/MacOS/DIANaSiigo || true
       
-      - name: Fix app permissions
+      - name: Fix app bundle
         run: |
           chmod +x dist/DIANaSiigo.app/Contents/MacOS/DIANaSiigo
-          # Crear Info.plist básico si no existe
-          if [ ! -f dist/DIANaSiigo.app/Contents/Info.plist ]; then
-            cat > dist/DIANaSiigo.app/Contents/Info.plist << EOF
+          
+          # Asegurar que Info.plist existe
+          cat > dist/DIANaSiigo.app/Contents/Info.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -60,26 +62,64 @@ jobs:
               <key>CFBundleShortVersionString</key>
               <string>1.0.0</string>
               <key>LSMinimumSystemVersion</key>
-              <string>10.13</string>
+              <string>11.0</string>
               <key>NSHighResolutionCapable</key>
               <true/>
           </dict>
           </plist>
           EOF
-          fi
       
       - name: Zip macOS app
         run: |
           cd dist
-          zip -r ../DIANaSiigo-macos.zip DIANaSiigo.app
+          zip -r ../DIANaSiigo-macos-arm64.zip DIANaSiigo.app
           cd ..
-          ls -lh DIANaSiigo-macos.zip
+          ls -lh DIANaSiigo-macos-arm64.zip
       
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: DIANaSiigo-macos
-          path: DIANaSiigo-macos.zip
+          name: DIANaSiigo-macos-arm64
+          path: DIANaSiigo-macos-arm64.zip
+
+  build-macos-intel:
+    runs-on: macos-13  # Último runner Intel disponible
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: x64  # Forzar Intel
+      
+      - name: Install dependencies (Intel only)
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir --force-reinstall numpy pandas openpyxl
+          pip install pyinstaller
+      
+      - name: Build macOS app (Intel x86_64)
+        run: |
+          python -m PyInstaller \
+            --windowed \
+            --name "DIANaSiigo" \
+            --target-arch x86_64 \
+            --osx-bundle-identifier "com.tuusuario.dianasiigo" \
+            dian_a_siigo.py
+      
+      - name: Zip macOS app
+        run: |
+          cd dist
+          zip -r ../DIANaSiigo-macos-intel.zip DIANaSiigo.app
+          cd ..
+      
+      - name: Upload macOS Intel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DIANaSiigo-macos-intel
+          path: DIANaSiigo-macos-intel.zip
 
   build-windows:
     runs-on: windows-latest
@@ -100,11 +140,6 @@ jobs:
       - name: Build Windows exe
         run: |
           pyinstaller --onefile --windowed --name "DIANaSiigo" dian_a_siigo.py
-      
-      - name: Check what was built
-        run: |
-          echo "Contents of dist folder:"
-          ls dist/
       
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
