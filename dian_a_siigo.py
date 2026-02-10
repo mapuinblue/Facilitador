@@ -1,6 +1,5 @@
 """
-DIAN a Siigo - Aplicación de Escritorio v2.6
-Mejorado: Formato correcto de VALOR_BASE y nueva paleta de colores pasteles
+DIAN a Siigo - Aplicación de Escritorio v3.1
 """
 
 import tkinter as tk
@@ -29,36 +28,101 @@ class ProcesadorContableDIAN:
             'iva_credito': '13050501'
         }
     
-    def formato_pesos(self, valor):
-        """Formatea número al estilo colombiano: 200.000,00"""
+    def limpiar_numero(self, valor_str):
+        """
+        Limpia un número en formato de texto a float.
+        Maneja formatos: 
+        - 1234.56 (punto decimal)
+        - 1.234,56 (punto miles, coma decimal - formato colombiano)
+        - 1,234.56 (coma miles, punto decimal)
+        - "1234,56" (coma decimal sin miles)
+        """
+        if pd.isna(valor_str) or valor_str == '' or valor_str is None:
+            return 0.0
+        
+        # Convertir a string por si acaso
+        valor_str = str(valor_str).strip()
+        
+        if valor_str == '' or valor_str == 'nan':
+            return 0.0
+        
+        # Eliminar espacios
+        valor_str = valor_str.replace(' ', '')
+        
+        # Detectar formato por la posición de comas y puntos
+        tiene_punto = '.' in valor_str
+        tiene_coma = ',' in valor_str
+        
+        try:
+            if tiene_punto and tiene_coma:
+                # Determinar cuál es el separador de miles y cuál el decimal
+                pos_ultimo_punto = valor_str.rfind('.')
+                pos_ultima_coma = valor_str.rfind(',')
+                
+                if pos_ultima_coma > pos_ultimo_punto:
+                    # Formato: 1.234,56 (colombiano)
+                    valor_str = valor_str.replace('.', '').replace(',', '.')
+                else:
+                    # Formato: 1,234.56 (inglés)
+                    valor_str = valor_str.replace(',', '')
+            elif tiene_coma and not tiene_punto:
+                # Solo tiene coma - probablemente es decimal
+                # Verificar si hay más de una coma
+                if valor_str.count(',') == 1:
+                    # Formato: 1234,56 - coma es decimal
+                    valor_str = valor_str.replace(',', '.')
+                else:
+                    # Formato: 1,234,567 - comas son miles
+                    valor_str = valor_str.replace(',', '')
+            # Si solo tiene punto, dejar como está (formato estándar)
+            
+            return float(valor_str)
+        except ValueError:
+            print(f"⚠️ No se pudo convertir '{valor_str}' a número, usando 0")
+            return 0.0
+    
+    def formato_pesos_display(self, valor):
+        """Formatea número al estilo colombiano SOLO PARA MOSTRAR: 200.000,00"""
         try:
             if pd.isna(valor) or valor == 0 or valor == '':
                 return "0,00"
-            valor = round(float(valor), 2)
-            entero = int(valor)
-            decimal = abs(valor - entero)
-            entero_formateado = f"{entero:,}".replace(",", ".")
-            decimal_formateado = f"{decimal:.2f}"[1:].replace(".", ",")
-            return f"{entero_formateado}{decimal_formateado}"
+            # Convertir a entero (redondeado al peso)
+            valor_entero = int(round(float(valor), 0))
+            # Formatear con punto para miles y coma para decimales
+            return f"{valor_entero:,}".replace(",", ".") + ",00"
         except:
             return "0,00"
     
-    def formato_base_iva(self, valor):
-        """Formatea la base del IVA al estilo colombiano: 200.000,00"""
+    def valor_numerico(self, valor):
+        """Devuelve el valor redondeado al peso más cercano (sin decimales)"""
         try:
-            if pd.isna(valor) or valor == 0 or valor == '':
-                return "0,00"
-            valor = int(round(float(valor)))  # Base IVA es entero redondeado
-            return f"{valor:,}".replace(",", ".") + ",00"
+            if pd.isna(valor) or valor == '' or valor == 0:
+                return None
+            # Asegurar conversión correcta
+            valor_float = float(valor)
+            # Redondear al entero más cercano
+            return int(round(valor_float, 0))
         except:
-            return "0,00"
+            return None
+    
+    def valor_numerico_base(self, valor):
+        """Devuelve el valor de base redondeado al peso más cercano (sin decimales)"""
+        try:
+            if pd.isna(valor) or valor == '' or valor == 0:
+                return None
+            valor_float = float(valor)
+            # Redondear al entero más cercano
+            return int(round(valor_float, 0))
+        except:
+            return None
     
     def redondear_peso(self, valor):
         """Redondea al peso más cercano"""
         try:
             if pd.isna(valor) or valor == '':
                 return 0
-            return round(float(valor))
+            valor_float = float(valor)
+            return int(round(valor_float, 0))
         except:
             return 0
     
@@ -192,7 +256,7 @@ class ProcesadorContableDIAN:
                     try:
                         # Verificar si la columna contiene números
                         sample = df[col].dropna().head(10)
-                        if len(sample) > 0 and any(str(x).replace(',', '').replace('.', '').isdigit() for x in sample):
+                        if len(sample) > 0 and any(str(x).replace(',', '').replace('.', '').replace('-', '').isdigit() for x in sample):
                             numeric_cols.append(col)
                     except:
                         pass
@@ -211,16 +275,19 @@ class ProcesadorContableDIAN:
             else:
                 print("Advertencia: No se encontró columna 'Tipo de documento'")
             
-            # Convertir columnas numéricas
+            # Convertir columnas numéricas usando el método mejorado
             for col in df.columns:
                 if col in ['Total', 'IVA', 'ICA', 'Rete IVA', 'Rete Renta', 'Rete ICA']:
                     try:
-                        # Reemplazar comas por puntos y convertir a numérico
-                        df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
-                        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-                        print(f"Convertida columna {col} a numérico")
+                        # Usar la función limpiar_numero para cada valor
+                        df[col] = df[col].apply(self.limpiar_numero)
+                        print(f"✓ Convertida columna {col} a numérico")
+                        
+                        # Mostrar muestra de valores para verificación
+                        muestra = df[col].head(3).tolist()
+                        print(f"  Muestra: {muestra}")
                     except Exception as e:
-                        print(f"Error convirtiendo columna {col}: {e}")
+                        print(f"❌ Error convirtiendo columna {col}: {e}")
                         df[col] = 0
             
             # Si no se encontró columna IVA, calcularla si es posible
@@ -235,7 +302,11 @@ class ProcesadorContableDIAN:
     
     def procesar_compras(self, df):
         """
-        Procesa COMPRAS con manejo de columnas faltantes
+        Procesa COMPRAS según especificaciones:
+        - Débito (gasto) = Total - IVA
+        - Débito (IVA) = IVA original
+        - VALOR_BASE = IVA / 0.19 (redondeado al peso)
+        - Todos los valores redondeados al peso más cercano
         """
         registros = []
         
@@ -250,9 +321,15 @@ class ProcesadorContableDIAN:
         
         for idx, row in df.iterrows():
             try:
-                # Obtener valores con manejo de columnas faltantes
+                # Obtener valores - ya vienen como float del leer_archivo_dian
                 total = float(row.get('Total', 0))
                 iva = float(row.get('IVA', 0))
+                
+                # DEBUG: Mostrar primeros 3 registros
+                if idx < 3:
+                    print(f"\n📊 Registro {idx + 1}:")
+                    print(f"   Total: {total:,.2f}")
+                    print(f"   IVA: {iva:,.2f}")
                 
                 # Obtener NIT Emisor o usar valor por defecto
                 if 'NIT Emisor' in df.columns:
@@ -273,43 +350,68 @@ class ProcesadorContableDIAN:
                 
                 # Calcular valores
                 valor_sin_iva = total - iva
-                base_iva = self.redondear_peso(iva / self.IVA_RATE) if iva > 0 else 0
+                base_iva = iva / self.IVA_RATE if iva > 0 else 0
                 
-                # Fila 1: Gasto (Débito)
+                # DEBUG: Mostrar cálculo
+                if idx < 3:
+                    print(f"   Valor sin IVA: {valor_sin_iva:,.2f}")
+                    print(f"   Base IVA: {base_iva:,.2f}")
+                
+                # Redondear todos los valores al peso más cercano
+                valor_sin_iva_entero = self.redondear_peso(valor_sin_iva)
+                iva_entero = self.redondear_peso(iva)
+                base_iva_entero = self.redondear_peso(base_iva)
+                
+                # DEBUG: Mostrar valores redondeados
+                if idx < 3:
+                    print(f"   Redondeados:")
+                    print(f"   - Valor sin IVA: {valor_sin_iva_entero:,}")
+                    print(f"   - IVA: {iva_entero:,}")
+                    print(f"   - Base IVA: {base_iva_entero:,}")
+                
+                # Fila 1: Gasto (Débito) - VALORES ENTEROS
                 registros.append({
                     'CUENTA': self.CUENTAS_COMPRAS['gasto'],
                     'CC': '',
                     'OBSERVACIONES': obs,
-                    'DEBITO': self.formato_pesos(valor_sin_iva),
-                    'CREDITO': '',
-                    'VALOR_BASE': '',
+                    'DEBITO': valor_sin_iva_entero,
+                    'CREDITO': None,
+                    'VALOR_BASE': None,
                     'TERCERO': nit,
-                    'H': ''
+                    'H': None
                 })
                 
-                # Fila 2: IVA (Débito)
+                # Fila 2: IVA descontable (Débito) - VALORES ENTEROS
                 if iva > 0:
                     registros.append({
                         'CUENTA': self.CUENTAS_COMPRAS['iva_descontable'],
                         'CC': '',
                         'OBSERVACIONES': obs,
-                        'DEBITO': self.formato_pesos(iva),
-                        'CREDITO': '',
-                        'VALOR_BASE': self.formato_base_iva(base_iva),
+                        'DEBITO': iva_entero,
+                        'CREDITO': None,
+                        'VALOR_BASE': base_iva_entero,
                         'TERCERO': nit,
                         'H': 1
                     })
                     
             except Exception as e:
-                print(f"Error procesando fila {idx}: {e}")
+                print(f"❌ Error procesando fila {idx}: {e}")
+                print(f"   Total: {row.get('Total', 'N/A')}")
+                print(f"   IVA: {row.get('IVA', 'N/A')}")
+                traceback.print_exc()
                 continue
         
-        print(f"Registros generados: {len(registros)}")
+        print(f"\n✅ Registros generados: {len(registros)}")
         return pd.DataFrame(registros)
     
     def procesar_ventas(self, df):
         """
-        Procesa VENTAS con manejo de columnas faltantes
+        Procesa VENTAS según especificaciones:
+        - Crédito (ingresos) = Total - IVA
+        - Crédito (IVA generado) = IVA original
+        - Débito (IVA crédito) = Total factura (Base + IVA)
+        - VALOR_BASE = IVA / 0.19 (redondeado al peso)
+        - Todos los valores redondeados al peso más cercano
         """
         registros = []
         
@@ -324,9 +426,15 @@ class ProcesadorContableDIAN:
         
         for idx, row in df.iterrows():
             try:
-                # Obtener valores con manejo de columnas faltantes
+                # Obtener valores - ya vienen como float del leer_archivo_dian
                 total = float(row.get('Total', 0))
                 iva = float(row.get('IVA', 0))
+                
+                # DEBUG: Mostrar primeros 3 registros
+                if idx < 3:
+                    print(f"\n📊 Registro {idx + 1}:")
+                    print(f"   Total: {total:,.2f}")
+                    print(f"   IVA: {iva:,.2f}")
                 
                 # Obtener NIT Receptor o usar valor por defecto
                 if 'NIT Receptor' in df.columns:
@@ -347,50 +455,72 @@ class ProcesadorContableDIAN:
                 
                 # Calcular valores
                 valor_sin_iva = total - iva
-                base_iva = self.redondear_peso(iva / self.IVA_RATE) if iva > 0 else 0
+                base_iva = iva / self.IVA_RATE if iva > 0 else 0
                 
-                # Fila 1: Ingresos (Crédito) - Cuenta 41
+                # DEBUG: Mostrar cálculo
+                if idx < 3:
+                    print(f"   Valor sin IVA: {valor_sin_iva:,.2f}")
+                    print(f"   Base IVA: {base_iva:,.2f}")
+                
+                # Redondear todos los valores al peso más cercano
+                valor_sin_iva_entero = self.redondear_peso(valor_sin_iva)
+                iva_entero = self.redondear_peso(iva)
+                base_iva_entero = self.redondear_peso(base_iva)
+                total_entero = self.redondear_peso(total)
+                
+                # DEBUG: Mostrar valores redondeados
+                if idx < 3:
+                    print(f"   Redondeados:")
+                    print(f"   - Valor sin IVA: {valor_sin_iva_entero:,}")
+                    print(f"   - IVA: {iva_entero:,}")
+                    print(f"   - Base IVA: {base_iva_entero:,}")
+                    print(f"   - Total: {total_entero:,}")
+                
+                # Fila 1: Ingresos (Crédito) - Cuenta 41 - VALORES ENTEROS
                 registros.append({
                     'CUENTA': self.CUENTAS_VENTAS['ingresos'],
                     'CC': '',
                     'OBSERVACIONES': obs,
-                    'DEBITO': '',
-                    'CREDITO': self.formato_pesos(valor_sin_iva),
-                    'VALOR_BASE': '',
+                    'DEBITO': None,
+                    'CREDITO': valor_sin_iva_entero,
+                    'VALOR_BASE': None,
                     'TERCERO': nit,
-                    'H': ''
+                    'H': None
                 })
                 
-                # Fila 2: IVA Generado (Crédito) - Cuenta 24080101
+                # Fila 2: IVA Generado (Crédito) - Cuenta 24080101 - VALORES ENTEROS
                 if iva > 0:
                     registros.append({
                         'CUENTA': self.CUENTAS_VENTAS['iva_generado'],
                         'CC': '',
                         'OBSERVACIONES': obs,
-                        'DEBITO': '',
-                        'CREDITO': self.formato_pesos(iva),
-                        'VALOR_BASE': self.formato_base_iva(base_iva),
+                        'DEBITO': None,
+                        'CREDITO': iva_entero,
+                        'VALOR_BASE': base_iva_entero,
                         'TERCERO': nit,
                         'H': 1
                     })
                     
-                    # Fila 3: IVA Débito - Cuenta 13050501
+                    # Fila 3: IVA Débito - Cuenta 13050501 - VALORES ENTEROS
                     registros.append({
                         'CUENTA': self.CUENTAS_VENTAS['iva_credito'],
                         'CC': '',
                         'OBSERVACIONES': obs,
-                        'DEBITO': self.formato_pesos(iva),
-                        'CREDITO': '',
-                        'VALOR_BASE': self.formato_base_iva(base_iva),
+                        'DEBITO': total_entero,  # Total factura (Base + IVA)
+                        'CREDITO': None,
+                        'VALOR_BASE': None,
                         'TERCERO': nit,
-                        'H': ''
+                        'H': None
                     })
                     
             except Exception as e:
-                print(f"Error procesando fila {idx}: {e}")
+                print(f"❌ Error procesando fila {idx}: {e}")
+                print(f"   Total: {row.get('Total', 'N/A')}")
+                print(f"   IVA: {row.get('IVA', 'N/A')}")
+                traceback.print_exc()
                 continue
         
-        print(f"Registros generados: {len(registros)}")
+        print(f"\n✅ Registros generados: {len(registros)}")
         return pd.DataFrame(registros)
 
 
@@ -399,26 +529,26 @@ class AplicacionDIAN:
     
     def __init__(self, root):
         self.root = root
-        self.root.title("DIAN → Siigo | Conversor Contable v2.6")
+        self.root.title("DIAN → Siigo | Conversor Contable v3.1")
         self.root.geometry("1000x800")
         
         # Paleta de colores pasteles en rosas
         self.COLORES = {
-            'fondo_principal': '#FFF0F5',  # Lavender blush - rosa muy suave
-            'fondo_secundario': '#FFE6F2',  # Rosa más claro
-            'fondo_frame': '#FFFFFF',  # Blanco para contraste
-            'titulo_principal': '#C71585',  # Medium violet red - rosa oscuro elegante
-            'texto_principal': '#8B0058',   # Rosa oscuro para buen contraste
-            'texto_secundario': '#A0527A',  # Dusty rose - rosa grisáceo
-            'boton_principal': '#FFB6C1',   # Light pink
-            'boton_secundario': '#FFC0CB',  # Pink
-            'boton_accion': '#FF69B4',      # Hot pink
-            'boton_exito': '#FF1493',       # Deep pink
-            'boton_peligro': '#DB7093',     # Pale violet red (Mismo color para todos los botones de resultados)
-            'barra_progreso': '#FFC0CB',    # Pink
-            'log_fondo': '#2c3e50',         # Mantener oscuro para el log
-            'log_texto': '#FFB6C1',         # Light pink para el texto del log
-            'borde': '#FFB6C1'              # Light pink para bordes
+            'fondo_principal': '#FFF0F5',
+            'fondo_secundario': '#FFE6F2',
+            'fondo_frame': '#FFFFFF',
+            'titulo_principal': '#C71585',
+            'texto_principal': '#8B0058',
+            'texto_secundario': '#A0527A',
+            'boton_principal': '#FFB6C1',
+            'boton_secundario': '#FFC0CB',
+            'boton_accion': '#FF69B4',
+            'boton_exito': '#FF1493',
+            'boton_peligro': '#DB7093',
+            'barra_progreso': '#FFC0CB',
+            'log_fondo': '#2c3e50',
+            'log_texto': '#FFB6C1',
+            'borde': '#FFB6C1'
         }
         
         self.root.configure(bg=self.COLORES['fondo_principal'])
@@ -554,7 +684,7 @@ class AplicacionDIAN:
                                 cursor='hand2',
                                 activebackground='#C71585',
                                 activeforeground='white',
-                                disabledforeground='white')  # <-- Añadido
+                                disabledforeground='white')
         self.btn_ver.pack(side=tk.LEFT, padx=5)
         
         self.btn_excel = tk.Button(self.frame_botones, text="💾 Descargar Excel", 
@@ -567,7 +697,7 @@ class AplicacionDIAN:
                                   cursor='hand2',
                                   activebackground='#C71585',
                                   activeforeground='white',
-                                  disabledforeground='white')  # <-- Añadido
+                                  disabledforeground='white')
         self.btn_excel.pack(side=tk.LEFT, padx=5)
         
         self.btn_query = tk.Button(self.frame_botones, text="📋 Power Query", 
@@ -580,7 +710,7 @@ class AplicacionDIAN:
                                   cursor='hand2',
                                   activebackground='#C71585',
                                   activeforeground='white',
-                                  disabledforeground='white')  # <-- Añadido
+                                  disabledforeground='white')
         self.btn_query.pack(side=tk.LEFT, padx=5)
         
         # Resumen
@@ -685,11 +815,10 @@ class AplicacionDIAN:
             # Verificar que existan las columnas necesarias para el tipo seleccionado
             if tipo == "compras":
                 if 'NIT Emisor' not in df.columns:
-                    # No lanzar error, solo advertir
                     self.log("Advertencia: No se encontró 'NIT Emisor', usando valor por defecto")
                 if 'Nombre Emisor' not in df.columns:
                     self.log("Advertencia: No se encontró 'Nombre Emisor', usando valor por defecto")
-            else:  # ventas
+            else:
                 if 'NIT Receptor' not in df.columns:
                     self.log("Advertencia: No se encontró 'NIT Receptor', usando valor por defecto")
                 if 'Nombre Receptor' not in df.columns:
@@ -728,7 +857,8 @@ class AplicacionDIAN:
             self.lbl_estado.config(text=f"✅ Completado: {tipo_nombre}", fg=self.COLORES['boton_exito'])
             self.lbl_resumen.config(text=f"Tipo: {tipo_nombre}\n"
                                         f"Filas generadas: {len(self.df_resultado)}\n"
-                                        f"Facturas procesadas: {len(df)}")
+                                        f"Facturas procesadas: {len(df)}\n"
+                                        f"Valores redondeados al peso más cercano")
             
             # Habilitar botones
             self.btn_ver.config(state=tk.NORMAL, bg=self.COLORES['boton_accion'], fg='white')
@@ -739,7 +869,11 @@ class AplicacionDIAN:
                 f"Procesamiento completado.\n\n"
                 f"Tipo: {tipo_nombre}\n"
                 f"Facturas: {len(df)}\n"
-                f"Registros Siigo: {len(self.df_resultado)}")
+                f"Registros Siigo: {len(self.df_resultado)}\n\n"
+                f"NOTAS:\n"
+                f"✓ Todos los valores redondeados al peso más cercano\n"
+                f"✓ VALOR_BASE calculado como IVA/0.19 (sin decimales)\n"
+                f"✓ Formato colombiano: 200.000,00")
             
         except Exception as e:
             self.progress['value'] = 0
@@ -747,6 +881,17 @@ class AplicacionDIAN:
             self.log(f"❌ ERROR: {error_msg}")
             self.log(traceback.format_exc())
             messagebox.showerror("Error", f"Error al procesar:\n\n{error_msg}")
+    
+    def formato_display(self, valor):
+        """Formatea un valor numérico para mostrar en la vista previa"""
+        if pd.isna(valor) or valor is None:
+            return ""
+        if isinstance(valor, (int, float)):
+            # Redondear al entero más cercano
+            valor_entero = int(round(float(valor), 0))
+            # Formato colombiano: 200.000,00
+            return f"{valor_entero:,}".replace(",", ".") + ",00"
+        return str(valor)
     
     def ver_preview(self):
         """Muestra ventana con vista previa"""
@@ -780,8 +925,18 @@ class AplicacionDIAN:
             ancho = 150 if col in ['OBSERVACIONES', 'TERCERO'] else 100
             tree.column(col, width=ancho, anchor='center')
         
+        # Insertar datos con formato de display
         for idx, row in self.df_resultado.head(100).iterrows():
-            tree.insert('', tk.END, values=list(row))
+            valores_display = []
+            for col in columnas:
+                valor = row[col]
+                if col in ['DEBITO', 'CREDITO', 'VALOR_BASE']:
+                    valores_display.append(self.formato_display(valor))
+                elif col == 'H':
+                    valores_display.append(str(valor) if pd.notna(valor) and valor != '' else '')
+                else:
+                    valores_display.append(str(valor) if pd.notna(valor) and valor != '' else '')
+            tree.insert('', tk.END, values=valores_display)
         
         scrollbar_y = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=tree.yview)
         scrollbar_x = ttk.Scrollbar(frame, orient=tk.HORIZONTAL, command=tree.xview)
@@ -800,7 +955,7 @@ class AplicacionDIAN:
                 font=('Helvetica', 9)).pack(pady=5)
     
     def guardar_excel(self):
-        """Guarda el resultado en Excel"""
+        """Guarda el resultado en Excel con formato colombiano EXACTO"""
         if self.df_resultado is None:
             return
         
@@ -815,49 +970,104 @@ class AplicacionDIAN:
         
         if archivo:
             try:
-                with pd.ExcelWriter(archivo, engine='openpyxl') as writer:
-                    self.df_resultado.to_excel(writer, index=False, sheet_name='Siigo')
-                    
-                    worksheet = writer.sheets['Siigo']
-                    for column in worksheet.columns:
-                        max_length = 0
-                        column_letter = column[0].column_letter
-                        for cell in column:
-                            try:
-                                if cell.value:
-                                    max_length = max(max_length, len(str(cell.value)))
-                            except:
-                                pass
-                        worksheet.column_dimensions[column_letter].width = min(max_length + 2, 50)
+                from openpyxl import Workbook
+                from openpyxl.styles import numbers
+                
+                # Crear un nuevo workbook
+                wb = Workbook()
+                ws = wb.active
+                ws.title = 'Siigo'
+                
+                # Escribir encabezados
+                for col_idx, col_name in enumerate(self.df_resultado.columns, start=1):
+                    ws.cell(row=1, column=col_idx, value=col_name)
+                
+                # Escribir datos - VALORES COMO ENTEROS (redondeados al peso)
+                for row_idx, row_data in enumerate(self.df_resultado.itertuples(index=False), start=2):
+                    for col_idx, (col_name, valor) in enumerate(zip(self.df_resultado.columns, row_data), start=1):
+                        cell = ws.cell(row=row_idx, column=col_idx)
+                        
+                        # Escribir valor según el tipo
+                        if col_name in ['DEBITO', 'CREDITO', 'VALOR_BASE']:
+                            if pd.notna(valor) and valor is not None:
+                                # Asegurar que sea entero
+                                cell.value = int(round(float(valor), 0))
+                                # Formato colombiano EXACTO: 200.000,00
+                                cell.number_format = '#.##0,00'
+                            else:
+                                cell.value = None
+                        elif col_name == 'H':
+                            if pd.notna(valor) and valor is not None and valor != '':
+                                cell.value = int(valor)
+                            else:
+                                cell.value = None
+                        else:
+                            cell.value = str(valor) if pd.notna(valor) and valor != '' else ''
+                
+                # Ajustar anchos de columna
+                for column in ws.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if cell.value:
+                                max_length = max(max_length, len(str(cell.value)))
+                        except:
+                            pass
+                    ws.column_dimensions[column_letter].width = min(max_length + 2, 50)
+                
+                # Guardar archivo
+                wb.save(archivo)
                 
                 self.log(f"✅ Excel guardado: {archivo}")
+                self.log("✅ Valores guardados como ENTEROS (redondeados al peso)")
+                self.log("✅ Formato colombiano EXACTO: #.##0,00")
                 
-                if messagebox.askyesno("Éxito", "¿Deseas abrir el archivo ahora?"):
+                if messagebox.askyesno("Éxito", 
+                    "Archivo guardado exitosamente.\n\n"
+                    "✅ Todos los valores redondeados al peso más cercano\n"
+                    "✅ Formato colombiano EXACTO: 200.000,00\n"
+                    "✅ Listo para usar en Siigo\n\n"
+                    "¿Deseas abrir el archivo ahora?"):
                     os.startfile(archivo)
                     
             except Exception as e:
+                self.log(f"❌ Error guardando: {str(e)}")
                 messagebox.showerror("Error", f"No se pudo guardar:\n{str(e)}")
     
     def mostrar_power_query(self):
-        """Muestra código Power Query"""
+        """Muestra código Power Query con valores enteros"""
         if self.df_resultado is None:
             return
         
+        # Crear copia del dataframe para formatear valores en el código M
+        df_display = self.df_resultado.copy()
+        
         # Generar código M
         filas = []
-        for idx, row in self.df_resultado.iterrows():
+        for idx, row in df_display.iterrows():
             valores = []
-            for v in row.values:
-                if pd.isna(v) or v == '':
-                    valores.append('null')
-                elif isinstance(v, (int, float)):
-                    valores.append(str(v))
+            for col_name, v in zip(df_display.columns, row.values):
+                if col_name in ['DEBITO', 'CREDITO', 'VALOR_BASE']:
+                    if pd.isna(v) or v is None:
+                        valores.append('null')
+                    else:
+                        # Convertir a entero (ya redondeado)
+                        valores.append(str(int(round(float(v), 0))))
+                elif col_name == 'H':
+                    if pd.isna(v) or v is None or v == '':
+                        valores.append('null')
+                    else:
+                        valores.append(str(int(v)))
                 else:
-                    valores.append(f'"{str(v)}"')
+                    if pd.isna(v) or v == '':
+                        valores.append('null')
+                    else:
+                        valores.append(f'"{str(v)}"')
             filas.append(f"    {{ {', '.join(valores)} }}")
         
         datos = ",\n".join(filas)
-        headers = ", ".join([f'"{col}"' for col in self.df_resultado.columns])
+        headers = ", ".join([f'"{col}"' for col in df_display.columns])
         
         codigo_m = f"""let
     Origen = #table(
@@ -870,13 +1080,13 @@ class AplicacionDIAN:
         {{"CUENTA", type text}}, 
         {{"CC", type text}}, 
         {{"OBSERVACIONES", type text}}, 
-        {{"DEBITO", type text}}, 
-        {{"CREDITO", type text}}, 
-        {{"VALOR_BASE", type text}},  <!-- Cambiado a texto por el formato -->
+        {{"DEBITO", Int64.Type}}, 
+        {{"CREDITO", Int64.Type}}, 
+        {{"VALOR_BASE", Int64.Type}},
         {{"TERCERO", type text}}, 
         {{"H", Int64.Type}}
     }}),
-    Limpieza = Table.ReplaceValue(TipoCambiado,"",null,Replacer.ReplaceValue,
+    Limpieza = Table.ReplaceValue(TipoCambiado,null,null,Replacer.ReplaceValue,
         {{"DEBITO", "CREDITO", "H", "VALOR_BASE"}}),
     Filtrado = Table.SelectRows(Limpieza, each ([CUENTA] <> null))
 in
