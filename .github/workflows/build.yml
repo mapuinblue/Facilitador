@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-macos-arm64:
-    runs-on: macos-14  # Apple Silicon nativo (M1/M2/M3)
+    runs-on: macos-14
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,23 +25,25 @@ jobs:
           pip install --no-cache-dir --force-reinstall numpy pandas openpyxl Pillow
           pip install pyinstaller
       
-      - name: Build macOS app (ARM64)
+      - name: Build macOS app (ARM64) with icon
         run: |
           python -m PyInstaller \
             --windowed \
             --name "DIANaSiigo" \
             --target-arch arm64 \
             --osx-bundle-identifier "com.tuusuario.dianasiigo" \
+            --add-data "Logo.png:." \
+            --icon=logo.icns \
             dian_a_siigo.py
       
-      - name: Verify architecture
-        run: |
-          file dist/DIANaSiigo.app/Contents/MacOS/DIANaSiigo
-      
-      - name: Fix app bundle
+      - name: Fix app bundle with icon
         run: |
           chmod +x dist/DIANaSiigo.app/Contents/MacOS/DIANaSiigo
           
+          # Copiar icono a Resources
+          cp logo.icns dist/DIANaSiigo.app/Contents/Resources/ || true
+          
+          # Crear Info.plist completo con icono
           cat > dist/DIANaSiigo.app/Contents/Info.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -61,6 +63,8 @@ jobs:
               <string>11.0</string>
               <key>NSHighResolutionCapable</key>
               <true/>
+              <key>CFBundleIconFile</key>
+              <string>logo.icns</string>
           </dict>
           </plist>
           EOF
@@ -92,14 +96,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas openpyxl Pillow pyinstaller
       
-      - name: Build Windows exe
+      - name: Build Windows exe (with icon and logo)
         run: |
-          pyinstaller --onefile --windowed --name "DIANaSiigo" dian_a_siigo.py
-      
-      - name: Check what was built
-        run: |
-          echo "Contents of dist folder:"
-          ls dist/
+          pyinstaller --onefile --windowed --name "DIANaSiigo" `
+            --icon=logo.ico `
+            --add-data "Logo.png;." `
+            dian_a_siigo.py
       
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
