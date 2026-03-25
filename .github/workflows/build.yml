@@ -2,62 +2,102 @@ name: Build Executables
 
 on:
   push:
+    branches: [ main, master ]
     tags:
       - 'v*'
   workflow_dispatch:
 
 jobs:
+  build-macos-arm64:
+    runs-on: macos-14  # Apple Silicon nativo (M1/M2/M3)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Clean install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir --force-reinstall numpy pandas openpyxl
+          pip install pyinstaller
+      
+      - name: Build macOS app (ARM64)
+        run: |
+          python -m PyInstaller \
+            --windowed \
+            --name "DIANaSiigo" \
+            --target-arch arm64 \
+            --osx-bundle-identifier "com.tuusuario.dianasiigo" \
+            dian_a_siigo.py
+      
+      - name: Verify architecture
+        run: |
+          file dist/DIANaSiigo.app/Contents/MacOS/DIANaSiigo
+      
+      - name: Fix app bundle
+        run: |
+          chmod +x dist/DIANaSiigo.app/Contents/MacOS/DIANaSiigo
+          
+          cat > dist/DIANaSiigo.app/Contents/Info.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>DIANaSiigo</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.tuusuario.dianasiigo</string>
+              <key>CFBundleName</key>
+              <string>DIANaSiigo</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.0.0</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>11.0</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+      
+      - name: Zip macOS app
+        run: |
+          cd dist
+          zip -r ../DIANaSiigo-macos-arm64.zip DIANaSiigo.app
+      
+      - name: Upload macOS ARM64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DIANaSiigo-macos-arm64
+          path: DIANaSiigo-macos-arm64.zip
+
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: |
+      
+      - name: Install dependencies
+        run: |
           python -m pip install --upgrade pip
-          pip install pandas openpyxl Pillow pyinstaller
-      - run: |
-          pyinstaller --onefile --windowed --name "DIAN_a_Siigo" --icon=logo.ico --add-data "Logo.png;." --add-data "logo.ico;." dian_a_siigo.py
-      - uses: actions/upload-artifact@v4
+          pip install pandas openpyxl pyinstaller
+      
+      - name: Build Windows exe
+        run: |
+          pyinstaller --onefile --windowed --name "DIANaSiigo" dian_a_siigo.py
+      
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: DIAN_a_Siigo_Windows
-          path: dist/DIAN_a_Siigo.exe
-
-  build-macos-arm:
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: |
-          python -m pip install --upgrade pip
-          pip install pandas openpyxl Pillow pyinstaller
-      - run: |
-          pyinstaller --onefile --windowed --name "DIAN_a_Siigo" --add-data "Logo.png:." --add-data "logo.ico:." dian_a_siigo.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: DIAN_a_Siigo_macOS_ARM
-          path: dist/DIAN_a_Siigo
-
-  release:
-    needs: [build-windows, build-macos-arm]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: ./artifacts
-      - run: |
-          mv ./artifacts/DIAN_a_Siigo_Windows/DIAN_a_Siigo.exe ./artifacts/DIAN_a_Siigo_Windows.exe
-          mv ./artifacts/DIAN_a_Siigo_macOS_ARM/DIAN_a_Siigo ./artifacts/DIAN_a_Siigo_macOS_ARM
-          chmod +x ./artifacts/DIAN_a_Siigo_macOS_ARM
-      - uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            ./artifacts/DIAN_a_Siigo_Windows.exe
-            ./artifacts/DIAN_a_Siigo_macOS_ARM
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: DIANaSiigo-windows
+          path: dist/DIANaSiigo.exe
