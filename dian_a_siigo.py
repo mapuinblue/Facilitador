@@ -12,6 +12,14 @@ import os
 import sys
 import traceback
 
+# Importar Pillow para el logo
+try:
+    from PIL import Image, ImageTk
+except ImportError:
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "Pillow"])
+    from PIL import Image, ImageTk
+
 
 class ProcesadorContableDIAN:
     """Procesa archivos DIAN con detección automática de estructura"""
@@ -572,16 +580,43 @@ class AplicacionDIAN:
         main_frame = tk.Frame(self.root, bg=self.COLORES['fondo_principal'], padx=20, pady=15)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Título
-        tk.Label(main_frame, text="Conversor DIAN a Siigo", 
-                font=('Helvetica', 24, 'bold'), 
-                bg=self.COLORES['fondo_principal'], 
-                fg=self.COLORES['titulo_principal']).pack(pady=(0, 5))
+        # --- Frame superior con título centrado y logo a la derecha ---
+        top_frame = tk.Frame(main_frame, bg=self.COLORES['fondo_principal'])
+        top_frame.pack(fill=tk.X, pady=(0, 5))
         
-        tk.Label(main_frame, text="Procesa archivos de compras y ventas descargados de la DIAN", 
-                font=('Helvetica', 10), 
-                bg=self.COLORES['fondo_principal'], 
-                fg=self.COLORES['texto_secundario']).pack(pady=(0, 15))
+        # Frame para el título (centrado)
+        titulo_frame = tk.Frame(top_frame, bg=self.COLORES['fondo_principal'])
+        titulo_frame.pack(fill=tk.X)
+        
+        # Título centrado
+        tk.Label(titulo_frame, text="Conversor DIAN a Siigo", 
+                 font=('Helvetica', 24, 'bold'), 
+                 bg=self.COLORES['fondo_principal'], 
+                 fg=self.COLORES['titulo_principal']).pack(pady=(0, 5))
+        
+        # Subtítulo centrado
+        tk.Label(titulo_frame, text="Procesa archivos de compras y ventas descargados de la DIAN", 
+                 font=('Helvetica', 10), 
+                 bg=self.COLORES['fondo_principal'], 
+                 fg=self.COLORES['texto_secundario']).pack(pady=(0, 15))
+        
+        # Logo posicionado a la derecha (sobre el top_frame)
+        try:
+            logo_path = Path(__file__).parent / 'Logo.png'
+            if logo_path.exists():
+                img = Image.open(logo_path)
+                # Calcular tamaño manteniendo proporción, altura máxima 60px
+                ancho_original, alto_original = img.size
+                alto_nuevo = 60
+                ancho_nuevo = int((ancho_original / alto_original) * alto_nuevo)
+                img = img.resize((ancho_nuevo, alto_nuevo), Image.LANCZOS)
+                logo_img = ImageTk.PhotoImage(img)
+                logo_label = tk.Label(top_frame, image=logo_img, bg=self.COLORES['fondo_principal'])
+                logo_label.image = logo_img
+                # Posicionar en la esquina superior derecha
+                logo_label.place(relx=1.0, y=5, anchor='ne', x=-10)
+        except Exception as e:
+            print(f"No se pudo cargar el logo: {e}")
         
         # Frame de selección
         frame_archivo = tk.LabelFrame(main_frame, text=" 1. Seleccionar Archivo de la DIAN ", 
@@ -592,6 +627,8 @@ class AplicacionDIAN:
                                      relief=tk.RIDGE,
                                      borderwidth=2)
         frame_archivo.pack(fill=tk.X, pady=5)
+        
+        # ... resto del código permanece igual ...
         
         # Entry que se expande horizontalmente
         self.entry_ruta = tk.Entry(frame_archivo, font=('Helvetica', 10), 
