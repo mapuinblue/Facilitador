@@ -1,5 +1,5 @@
 """
-DIAN a Siigo - Aplicación de Escritorio v3.1
+DIAN a Siigo - Aplicación de Escritorio v3.2
 """
 
 import tkinter as tk
@@ -12,13 +12,13 @@ import os
 import sys
 import traceback
 
-# Importar Pillow para el logo
+# Manejo opcional de PIL (logo) - NO instala automáticamente
 try:
     from PIL import Image, ImageTk
+    PIL_AVAILABLE = True
 except ImportError:
-    import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "Pillow"])
-    from PIL import Image, ImageTk
+    PIL_AVAILABLE = False
+    print("Pillow no disponible, ejecutando sin logo")
 
 
 class ProcesadorContableDIAN:
@@ -537,17 +537,10 @@ class AplicacionDIAN:
     
     def __init__(self, root):
         self.root = root
-        self.root.title("DIAN → Siigo | Conversor Contable v3.1")
+        self.root.title("DIAN → Siigo | Conversor Contable v3.2")
         self.root.geometry("800x600")          # Tamaño inicial reducido
         self.root.minsize(700, 500)            # Tamaño mínimo para evitar que se oculte contenido
         self.root.resizable(True, True)        # Permitir redimensionamiento (por defecto True)
-        
-        try:
-            icon_path = Path(__file__).parent / 'logo.ico'
-            if icon_path.exists():
-                self.root.iconbitmap(icon_path)
-        except Exception:
-            pass
         
         # Paleta de colores corporativa: azules, blancos y grises
         self.COLORES = {
@@ -580,7 +573,7 @@ class AplicacionDIAN:
         main_frame = tk.Frame(self.root, bg=self.COLORES['fondo_principal'], padx=20, pady=15)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # --- Frame superior con título centrado y logo a la derecha ---
+        # --- Frame superior con título centrado y logo a la derecha (opcional) ---
         top_frame = tk.Frame(main_frame, bg=self.COLORES['fondo_principal'])
         top_frame.pack(fill=tk.X, pady=(0, 5))
         
@@ -600,23 +593,24 @@ class AplicacionDIAN:
                  bg=self.COLORES['fondo_principal'], 
                  fg=self.COLORES['texto_secundario']).pack(pady=(0, 15))
         
-        # Logo posicionado a la derecha (sobre el top_frame)
-        try:
-            logo_path = Path(__file__).parent / 'Logo.png'
-            if logo_path.exists():
-                img = Image.open(logo_path)
-                # Calcular tamaño manteniendo proporción, altura máxima 60px
-                ancho_original, alto_original = img.size
-                alto_nuevo = 60
-                ancho_nuevo = int((ancho_original / alto_original) * alto_nuevo)
-                img = img.resize((ancho_nuevo, alto_nuevo), Image.LANCZOS)
-                logo_img = ImageTk.PhotoImage(img)
-                logo_label = tk.Label(top_frame, image=logo_img, bg=self.COLORES['fondo_principal'])
-                logo_label.image = logo_img
-                # Posicionar en la esquina superior derecha
-                logo_label.place(relx=1.0, y=5, anchor='ne', x=-10)
-        except Exception as e:
-            print(f"No se pudo cargar el logo: {e}")
+        # Logo posicionado a la derecha (solo si PIL está disponible y existe el archivo)
+        if PIL_AVAILABLE:
+            try:
+                logo_path = Path(__file__).parent / 'Logo.png'
+                if logo_path.exists():
+                    img = Image.open(logo_path)
+                    # Calcular tamaño manteniendo proporción, altura máxima 60px
+                    ancho_original, alto_original = img.size
+                    alto_nuevo = 60
+                    ancho_nuevo = int((ancho_original / alto_original) * alto_nuevo)
+                    img = img.resize((ancho_nuevo, alto_nuevo), Image.LANCZOS)
+                    logo_img = ImageTk.PhotoImage(img)
+                    logo_label = tk.Label(top_frame, image=logo_img, bg=self.COLORES['fondo_principal'])
+                    logo_label.image = logo_img  # Mantener referencia
+                    # Posicionar en la esquina superior derecha
+                    logo_label.place(relx=1.0, y=5, anchor='ne', x=-10)
+            except Exception as e:
+                print(f"No se pudo cargar el logo: {e}")
         
         # Frame de selección
         frame_archivo = tk.LabelFrame(main_frame, text=" 1. Seleccionar Archivo de la DIAN ", 
@@ -627,8 +621,6 @@ class AplicacionDIAN:
                                      relief=tk.RIDGE,
                                      borderwidth=2)
         frame_archivo.pack(fill=tk.X, pady=5)
-        
-        # ... resto del código permanece igual ...
         
         # Entry que se expande horizontalmente
         self.entry_ruta = tk.Entry(frame_archivo, font=('Helvetica', 10), 
@@ -1175,17 +1167,8 @@ in
 
 
 if __name__ == "__main__":
-    # Instalar dependencias si faltan
-    try:
-        import pandas
-        import openpyxl
-    except ImportError:
-        print("Instalando dependencias...")
-        import subprocess
-        subprocess.check_call([sys.executable, "-m", "pip", "install", 
-                             "pandas", "openpyxl", "-q"])
-        print("Dependencias instaladas. Reiniciando...")
-        os.execv(sys.executable, ['python'] + sys.argv)
+    # Ya NO instalamos dependencias automáticamente - deben estar en requirements.txt
+    # e instalarse antes de compilar el ejecutable
     
     # Iniciar
     root = tk.Tk()
