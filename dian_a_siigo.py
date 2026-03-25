@@ -12,6 +12,15 @@ import os
 import sys
 import traceback
 
+def resource_path(relative_path):
+    """Obtiene la ruta absoluta del recurso, funciona en dev y en PyInstaller"""
+    try:
+        # PyInstaller crea una carpeta temporal y guarda la ruta en _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 # Manejo opcional de PIL (logo) - NO instala automáticamente
 try:
     from PIL import Image, ImageTk
@@ -593,11 +602,12 @@ class AplicacionDIAN:
                  bg=self.COLORES['fondo_principal'], 
                  fg=self.COLORES['texto_secundario']).pack(pady=(0, 15))
         
-        # Logo posicionado a la derecha (solo si PIL está disponible y existe el archivo)
+        # Logo posicionado a la derecha (solo si PIL disponible)
         if PIL_AVAILABLE:
             try:
-                logo_path = Path(__file__).parent / 'Logo.png'
-                if logo_path.exists():
+                # Usar resource_path para encontrar el logo empaquetado
+                logo_path = resource_path('Logo.png')
+                if os.path.exists(logo_path):
                     img = Image.open(logo_path)
                     # Calcular tamaño manteniendo proporción, altura máxima 60px
                     ancho_original, alto_original = img.size
@@ -609,6 +619,9 @@ class AplicacionDIAN:
                     logo_label.image = logo_img  # Mantener referencia
                     # Posicionar en la esquina superior derecha
                     logo_label.place(relx=1.0, y=5, anchor='ne', x=-10)
+                    print(f"Logo cargado correctamente desde: {logo_path}")
+                else:
+                    print(f"Logo no encontrado en: {logo_path}")
             except Exception as e:
                 print(f"No se pudo cargar el logo: {e}")
         
