@@ -530,25 +530,34 @@ class AplicacionDIAN:
     def __init__(self, root):
         self.root = root
         self.root.title("DIAN → Siigo | Conversor Contable v3.1")
-        self.root.geometry("1000x800")
+        self.root.geometry("800x600")          # Tamaño inicial reducido
+        self.root.minsize(700, 500)            # Tamaño mínimo para evitar que se oculte contenido
+        self.root.resizable(True, True)        # Permitir redimensionamiento (por defecto True)
         
-        # Paleta de colores pasteles en rosas
+        try:
+            icon_path = Path(__file__).parent / 'logo.ico'
+            if icon_path.exists():
+                self.root.iconbitmap(icon_path)
+        except Exception:
+            pass
+        
+        # Paleta de colores corporativa: azules, blancos y grises
         self.COLORES = {
-            'fondo_principal': '#FFF0F5',
-            'fondo_secundario': '#FFE6F2',
-            'fondo_frame': '#FFFFFF',
-            'titulo_principal': '#C71585',
-            'texto_principal': '#8B0058',
-            'texto_secundario': '#A0527A',
-            'boton_principal': '#FFB6C1',
-            'boton_secundario': '#FFC0CB',
-            'boton_accion': '#FF69B4',
-            'boton_exito': '#FF1493',
-            'boton_peligro': '#DB7093',
-            'barra_progreso': '#FFC0CB',
-            'log_fondo': '#2c3e50',
-            'log_texto': '#FFB6C1',
-            'borde': '#FFB6C1'
+            'fondo_principal': '#F5F5F5',        # gris muy claro
+            'fondo_secundario': '#E9E9E9',       # gris claro
+            'fondo_frame': '#FFFFFF',            # blanco
+            'titulo_principal': '#2C3E50',       # azul oscuro / gris azulado
+            'texto_principal': '#2C3E50',        # mismo tono para texto principal
+            'texto_secundario': '#5D6D7E',       # gris medio
+            'boton_principal': '#3498DB',        # azul principal
+            'boton_secundario': '#5DADE2',       # azul más claro
+            'boton_accion': '#2980B9',           # azul más oscuro
+            'boton_exito': '#2C3E50',            # gris azulado oscuro
+            'boton_peligro': '#5DADE2',          # naranja (para acciones destacadas, se mantiene por contraste)
+            'barra_progreso': '#3498DB',
+            'log_fondo': '#2C3E50',              # fondo oscuro para el log
+            'log_texto': '#ECF0F1',              # texto claro
+            'borde': '#BDC3C7'                   # gris medio
         }
         
         self.root.configure(bg=self.COLORES['fondo_principal'])
@@ -560,55 +569,56 @@ class AplicacionDIAN:
         self.crear_widgets()
     
     def crear_widgets(self):
-        main_frame = tk.Frame(self.root, bg=self.COLORES['fondo_principal'], padx=30, pady=20)
+        main_frame = tk.Frame(self.root, bg=self.COLORES['fondo_principal'], padx=20, pady=15)
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Título
         tk.Label(main_frame, text="Conversor DIAN a Siigo", 
-                font=('Helvetica', 26, 'bold'), 
+                font=('Helvetica', 24, 'bold'), 
                 bg=self.COLORES['fondo_principal'], 
                 fg=self.COLORES['titulo_principal']).pack(pady=(0, 5))
         
         tk.Label(main_frame, text="Procesa archivos de compras y ventas descargados de la DIAN", 
-                font=('Helvetica', 12), 
+                font=('Helvetica', 10), 
                 bg=self.COLORES['fondo_principal'], 
-                fg=self.COLORES['texto_secundario']).pack(pady=(0, 20))
+                fg=self.COLORES['texto_secundario']).pack(pady=(0, 15))
         
         # Frame de selección
         frame_archivo = tk.LabelFrame(main_frame, text=" 1. Seleccionar Archivo de la DIAN ", 
                                      bg=self.COLORES['fondo_frame'], 
                                      fg=self.COLORES['texto_principal'],
-                                     font=('Helvetica', 12, 'bold'), 
-                                     padx=15, pady=15,
+                                     font=('Helvetica', 11, 'bold'), 
+                                     padx=10, pady=10,
                                      relief=tk.RIDGE,
                                      borderwidth=2)
-        frame_archivo.pack(fill=tk.X, pady=10)
+        frame_archivo.pack(fill=tk.X, pady=5)
         
-        self.entry_ruta = tk.Entry(frame_archivo, font=('Helvetica', 11), 
-                                  width=65, relief=tk.SOLID, bd=2,
+        # Entry que se expande horizontalmente
+        self.entry_ruta = tk.Entry(frame_archivo, font=('Helvetica', 10), 
+                                  relief=tk.SOLID, bd=1,
                                   bg='white', fg=self.COLORES['texto_principal'])
-        self.entry_ruta.pack(side=tk.LEFT, padx=(0, 10), ipady=5)
+        self.entry_ruta.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10), ipady=4)
         
         tk.Button(frame_archivo, text="📁 Buscar Archivo", 
                  command=self.seleccionar_archivo,
                  bg=self.COLORES['boton_principal'], 
-                 fg=self.COLORES['texto_principal'],
-                 font=('Helvetica', 11, 'bold'),
+                 fg='white',
+                 font=('Helvetica', 10, 'bold'),
                  relief=tk.RAISED, 
-                 padx=20, pady=6,
+                 padx=15, pady=4,
                  cursor='hand2',
                  activebackground=self.COLORES['boton_accion'],
-                 activeforeground='white').pack(side=tk.LEFT)
+                 activeforeground='white').pack(side=tk.RIGHT)
         
         # Frame de tipo
         frame_tipo = tk.LabelFrame(main_frame, text=" 2. Tipo de Documento ", 
                                   bg=self.COLORES['fondo_frame'],
                                   fg=self.COLORES['texto_principal'],
-                                  font=('Helvetica', 12, 'bold'), 
-                                  padx=15, pady=15,
+                                  font=('Helvetica', 11, 'bold'), 
+                                  padx=10, pady=8,
                                   relief=tk.RIDGE,
                                   borderwidth=2)
-        frame_tipo.pack(fill=tk.X, pady=10)
+        frame_tipo.pack(fill=tk.X, pady=5)
         
         self.tipo_var = tk.StringVar(value="auto")
         
@@ -623,113 +633,114 @@ class AplicacionDIAN:
                           value=valor, 
                           bg=self.COLORES['fondo_frame'], 
                           fg=self.COLORES['texto_principal'],
-                          font=('Helvetica', 11),
+                          font=('Helvetica', 10),
                           selectcolor=self.COLORES['boton_principal'],
                           activebackground=self.COLORES['fondo_frame'],
-                          activeforeground=self.COLORES['texto_principal']).pack(anchor=tk.W, pady=4)
+                          activeforeground=self.COLORES['texto_principal']).pack(anchor=tk.W, pady=2)
         
         # Botón procesar
         tk.Button(main_frame, text="⚡ PROCESAR ARCHIVO", 
                  command=self.procesar_archivo,
                  bg=self.COLORES['boton_accion'], 
                  fg='white',
-                 font=('Helvetica', 16, 'bold'),
+                 font=('Helvetica', 14, 'bold'),
                  relief=tk.RAISED, 
-                 padx=40, pady=15,
+                 padx=30, pady=10,
                  cursor='hand2',
                  activebackground=self.COLORES['boton_exito'],
-                 activeforeground='white').pack(pady=20)
+                 activeforeground='white').pack(pady=15)
         
         # Barra de progreso
         style = ttk.Style()
         style.theme_use('default')
         style.configure("TProgressbar",
-                       thickness=20,
+                       thickness=15,
                        background=self.COLORES['barra_progreso'],
                        troughcolor=self.COLORES['fondo_secundario'])
         
         self.progress = ttk.Progressbar(main_frame, orient=tk.HORIZONTAL, 
-                                       length=500, mode='determinate',
+                                       length=400, mode='determinate',
                                        style="TProgressbar")
-        self.progress.pack(pady=10)
+        self.progress.pack(fill=tk.X, padx=20, pady=5)
         
         # Frame de resultados
         self.frame_resultados = tk.LabelFrame(main_frame, text=" 3. Resultados y Log ", 
                                              bg=self.COLORES['fondo_frame'],
                                              fg=self.COLORES['texto_principal'],
-                                             font=('Helvetica', 12, 'bold'), 
-                                             padx=15, pady=15,
+                                             font=('Helvetica', 11, 'bold'), 
+                                             padx=10, pady=8,
                                              relief=tk.RIDGE,
                                              borderwidth=2)
-        self.frame_resultados.pack(fill=tk.BOTH, expand=True, pady=10)
+        self.frame_resultados.pack(fill=tk.BOTH, expand=True, pady=8)
         
         self.lbl_estado = tk.Label(self.frame_resultados, 
                                   text="Esperando archivo...", 
                                   bg=self.COLORES['fondo_frame'], 
                                   fg=self.COLORES['texto_secundario'], 
-                                  font=('Helvetica', 12))
-        self.lbl_estado.pack(pady=5)
+                                  font=('Helvetica', 10))
+        self.lbl_estado.pack(pady=4)
         
         # Botones
         self.frame_botones = tk.Frame(self.frame_resultados, bg=self.COLORES['fondo_frame'])
-        self.frame_botones.pack(pady=5)
+        self.frame_botones.pack(pady=4)
         
         self.btn_ver = tk.Button(self.frame_botones, text="👁 Ver Vista Previa", 
                                 command=self.ver_preview, state=tk.DISABLED,
                                 bg=self.COLORES['boton_peligro'], 
                                 fg='white',
-                                font=('Helvetica', 11, 'bold'),
+                                font=('Helvetica', 10, 'bold'),
                                 relief=tk.RAISED, 
-                                padx=15, pady=8,
+                                padx=12, pady=5,
                                 cursor='hand2',
-                                activebackground='#C71585',
+                                activebackground=self.COLORES['boton_accion'],
                                 activeforeground='white',
                                 disabledforeground='white')
-        self.btn_ver.pack(side=tk.LEFT, padx=5)
+        self.btn_ver.pack(side=tk.LEFT, padx=4)
         
         self.btn_excel = tk.Button(self.frame_botones, text="💾 Descargar Excel", 
                                   command=self.guardar_excel, state=tk.DISABLED,
                                   bg=self.COLORES['boton_peligro'], 
                                   fg='white',
-                                  font=('Helvetica', 11, 'bold'),
+                                  font=('Helvetica', 10, 'bold'),
                                   relief=tk.RAISED, 
-                                  padx=15, pady=8,
+                                  padx=12, pady=5,
                                   cursor='hand2',
-                                  activebackground='#C71585',
+                                  activebackground=self.COLORES['boton_accion'],
                                   activeforeground='white',
                                   disabledforeground='white')
-        self.btn_excel.pack(side=tk.LEFT, padx=5)
+        self.btn_excel.pack(side=tk.LEFT, padx=4)
         
         self.btn_query = tk.Button(self.frame_botones, text="📋 Power Query", 
                                   command=self.mostrar_power_query, state=tk.DISABLED,
                                   bg=self.COLORES['boton_peligro'], 
                                   fg='white',
-                                  font=('Helvetica', 11, 'bold'),
+                                  font=('Helvetica', 10, 'bold'),
                                   relief=tk.RAISED, 
-                                  padx=15, pady=8,
+                                  padx=12, pady=5,
                                   cursor='hand2',
-                                  activebackground='#C71585',
+                                  activebackground=self.COLORES['boton_accion'],
                                   activeforeground='white',
                                   disabledforeground='white')
-        self.btn_query.pack(side=tk.LEFT, padx=5)
+        self.btn_query.pack(side=tk.LEFT, padx=4)
         
         # Resumen
         self.lbl_resumen = tk.Label(self.frame_resultados, text="", 
                                    bg=self.COLORES['fondo_frame'], 
                                    fg=self.COLORES['texto_principal'],
-                                   font=('Helvetica', 11, 'bold'), 
+                                   font=('Helvetica', 10, 'bold'), 
                                    justify=tk.LEFT)
-        self.lbl_resumen.pack(pady=5)
+        self.lbl_resumen.pack(pady=4)
         
-        # Log
+        # Log (con ajuste de texto)
         self.txt_log = scrolledtext.ScrolledText(self.frame_resultados, 
-                                                height=12, width=90,
-                                                font=('Consolas', 10),
+                                                height=10, width=80,
+                                                font=('Consolas', 9),
                                                 bg=self.COLORES['log_fondo'], 
                                                 fg=self.COLORES['log_texto'],
                                                 relief=tk.SUNKEN,
-                                                borderwidth=2)
-        self.txt_log.pack(fill=tk.BOTH, expand=True, pady=10)
+                                                borderwidth=2,
+                                                wrap=tk.WORD)   # Ajuste de texto
+        self.txt_log.pack(fill=tk.BOTH, expand=True, pady=6)
         self.txt_log.insert(tk.END, "Log de procesamiento iniciado...\n")
         self.txt_log.config(state=tk.DISABLED)
     
@@ -900,14 +911,14 @@ class AplicacionDIAN:
         
         ventana = tk.Toplevel(self.root)
         ventana.title("Vista Previa - Datos para Siigo")
-        ventana.geometry("1100x600")
+        ventana.geometry("1000x550")
         ventana.configure(bg=self.COLORES['fondo_principal'])
         
-        frame = tk.Frame(ventana, padx=10, pady=10, bg=self.COLORES['fondo_principal'])
+        frame = tk.Frame(ventana, padx=8, pady=8, bg=self.COLORES['fondo_principal'])
         frame.pack(fill=tk.BOTH, expand=True)
         
         columnas = list(self.df_resultado.columns)
-        tree = ttk.Treeview(frame, columns=columnas, show='headings', height=20)
+        tree = ttk.Treeview(frame, columns=columnas, show='headings', height=18)
         
         # Configurar estilo para el treeview
         style = ttk.Style()
@@ -917,12 +928,12 @@ class AplicacionDIAN:
                       fieldbackground=self.COLORES['fondo_frame'])
         style.configure("Treeview.Heading",
                       background=self.COLORES['boton_principal'],
-                      foreground=self.COLORES['texto_principal'],
+                      foreground='white',
                       font=('Helvetica', 10, 'bold'))
         
         for col in columnas:
             tree.heading(col, text=col)
-            ancho = 150 if col in ['OBSERVACIONES', 'TERCERO'] else 100
+            ancho = 140 if col in ['OBSERVACIONES', 'TERCERO'] else 95
             tree.column(col, width=ancho, anchor='center')
         
         # Insertar datos con formato de display
@@ -952,7 +963,7 @@ class AplicacionDIAN:
         tk.Label(ventana, text=f"Mostrando {min(100, len(self.df_resultado))} de {len(self.df_resultado)} filas", 
                 fg=self.COLORES['texto_secundario'], 
                 bg=self.COLORES['fondo_principal'],
-                font=('Helvetica', 9)).pack(pady=5)
+                font=('Helvetica', 9)).pack(pady=4)
     
     def guardar_excel(self):
         """Guarda el resultado en Excel con formato colombiano EXACTO"""
@@ -1094,19 +1105,19 @@ in
         
         ventana = tk.Toplevel(self.root)
         ventana.title("Código Power Query (M)")
-        ventana.geometry("900x700")
+        ventana.geometry("850x650")
         ventana.configure(bg=self.COLORES['fondo_principal'])
         
         tk.Label(ventana, text="Copia este código en Excel (Datos > Obtener datos > Editor avanzado)", 
                 fg=self.COLORES['texto_principal'], 
                 bg=self.COLORES['fondo_principal'],
-                font=('Helvetica', 11, 'bold')).pack(pady=10)
+                font=('Helvetica', 10, 'bold')).pack(pady=8)
         
         texto = scrolledtext.ScrolledText(ventana, wrap=tk.WORD, 
-                                         font=('Consolas', 10), height=30,
+                                         font=('Consolas', 9), height=28,
                                          bg=self.COLORES['log_fondo'], 
                                          fg=self.COLORES['log_texto'])
-        texto.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        texto.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
         texto.insert(tk.END, codigo_m)
         
         def copiar():
@@ -1118,12 +1129,12 @@ in
                  command=copiar,
                  bg=self.COLORES['boton_exito'], 
                  fg='white',
-                 font=('Helvetica', 12, 'bold'),
+                 font=('Helvetica', 11, 'bold'),
                  relief=tk.RAISED, 
-                 padx=20, pady=10,
+                 padx=16, pady=6,
                  cursor='hand2',
-                 activebackground='#FF0066',
-                 activeforeground='white').pack(pady=10)
+                 activebackground=self.COLORES['boton_accion'],
+                 activeforeground='white').pack(pady=8)
 
 
 if __name__ == "__main__":
