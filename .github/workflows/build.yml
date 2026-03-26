@@ -25,7 +25,7 @@ jobs:
           pip install --no-cache-dir --force-reinstall numpy pandas openpyxl Pillow
           pip install pyinstaller
       
-      - name: Build macOS app (ARM64) with icon
+      - name: Build macOS app (ARM64)
         run: |
           python -m PyInstaller \
             --windowed \
@@ -34,16 +34,19 @@ jobs:
             --osx-bundle-identifier "com.tuusuario.dianasiigo" \
             --add-data "Logo.png:." \
             --icon=logo.icns \
+            --codesign-identity "-" \
             dian_a_siigo.py
       
-      - name: Fix app bundle with icon
+      - name: Fix app bundle permissions and signing
         run: |
+          # Hacer ejecutable el binario
           chmod +x dist/DIANaSiigo.app/Contents/MacOS/DIANaSiigo
           
           # Copiar icono a Resources
           cp logo.icns dist/DIANaSiigo.app/Contents/Resources/ || true
+          cp Logo.png dist/DIANaSiigo.app/Contents/Resources/ || true
           
-          # Crear Info.plist completo con icono
+          # Crear Info.plist completo
           cat > dist/DIANaSiigo.app/Contents/Info.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -65,20 +68,51 @@ jobs:
               <true/>
               <key>CFBundleIconFile</key>
               <string>logo.icns</string>
+              <key>LSUIElement</key>
+              <false/>
           </dict>
           </plist>
           EOF
+          
+          # Limpiar atributos extendidos que causan "dañado"
+          xattr -cr dist/DIANaSiigo.app || true
+          
+          # Firmar ad-hoc (sin certificado de desarrollador)
+          codesign --force --deep --sign - dist/DIANaSiigo.app || true
+          
+          # Verificar firma
+          codesign -dv dist/DIANaSiigo.app || true
       
-      - name: Zip macOS app
+      - name: Create DMG (mejor que ZIP para macOS)
         run: |
-          cd dist
-          zip -r ../DIANaSiigo-macos-arm64.zip DIANaSiigo.app
+          # Instalar create-dmg si no está
+          brew install create-dmg || true
+          
+          # Crear DMG
+          create-dmg \
+            --volname "DIANaSiigo" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --app-drop-link 450 185 \
+            "DIANaSiigo-macos-arm64.dmg" \
+            "dist/DIANaSiigo.app" || true
+          
+          # Si falla create-dmg, usar ZIP normal
+          if [ ! -f "DIANaSiigo-macos-arm64.dmg" ]; then
+            cd dist
+            zip -r ../DIANaSiigo-macos-arm64.zip DIANaSiigo.app
+            cd ..
+          fi
       
-      - name: Upload macOS ARM64 artifact
+      - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: DIANaSiigo-macos-arm64
-          path: DIANaSiigo-macos-arm64.zip
+          path: |
+            DIANaSiigo-macos-arm64.dmg
+            DIANaSiigo-macos-arm64.zip
+          if-no-files-found: ignore
 
   build-windows:
     runs-on: windows-latest
